@@ -9,7 +9,7 @@ on:
 jobs:
 
   build-and-test:
-    name: Build & Lint
+    name: Build  &  Lint
     runs-on: self-hosted
     steps:
       - name: Checkout code
