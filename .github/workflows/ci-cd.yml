@@ -27,7 +27,7 @@ jobs:
         run: docker compose -f docker-compose.yml build
 
   deploy:
-    name: Deploy to server
+    name: Deploy to  server
     needs: build-and-test
     runs-on: self-hosted
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
