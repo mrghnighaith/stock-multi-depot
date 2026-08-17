@@ -9,16 +9,14 @@ on:
 jobs:
 
   build-and-test:
-    name: Build  &  Lint
-    runs-on: self-hosted
+    name: Build & Lint
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Set up PHP
-        uses: shivammathur/setup-php@v2
-        with:
-          php-version: '8.2'
+        run: sudo apt-get update && sudo apt-get install -y php-cli
 
       - name: Lint PHP files
         run: |
@@ -31,13 +29,23 @@ jobs:
   deploy:
     name: Deploy to server
     needs: build-and-test
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Check deploy secrets are configured
+        id: check_secrets
+        run: |
+          if [ -z "${{ secrets.DEPLOY_HOST }}" ]; then
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Deploy over SSH
+        if: steps.check_secrets.outputs.configured == 'true'
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.DEPLOY_HOST }}
@@ -49,3 +57,7 @@ jobs:
             cp .env.production .env
             docker compose down
             docker compose up -d --build
+
+      - name: Skip notice
+        if: steps.check_secrets.outputs.configured == 'false'
+        run: echo "DEPLOY_HOST secret not set — skipping deploy. Configure secrets to enable this step."
