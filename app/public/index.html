@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NODE — Gestion de Stock Multi-Depots</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Inter:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-mark">◈</span>
+    <span class="brand-name">NODE</span>
+    <span class="brand-sub">stock multi-depots</span>
+  </div>
+  <div class="status-pill" id="statusPill">
+    <span class="dot"></span> systeme actif
+  </div>
+</header>
+
+<main>
+
+  <section class="hero">
+    <h1>Trois depots.<br>Un seul reseau.</h1>
+    <p>Visualisez les flux de stock entre Bizerte, Tunis et Sfax en temps reel.</p>
+  </section>
+
+  <!-- Signature element: warehouse node map -->
+  <section class="node-map" aria-label="Recapitulatif des depots">
+    <div class="node" data-depot="1">
+      <div class="node-label">DEPOT NORD</div>
+      <div class="node-city">Bizerte</div>
+      <div class="node-value" id="val-1">—</div>
+    </div>
+    <div class="node" data-depot="2">
+      <div class="node-label">DEPOT CENTRE</div>
+      <div class="node-city">Tunis</div>
+      <div class="node-value" id="val-2">—</div>
+    </div>
+    <div class="node" data-depot="3">
+      <div class="node-label">DEPOT SUD</div>
+      <div class="node-city">Sfax</div>
+      <div class="node-value" id="val-3">—</div>
+    </div>
+  </section>
+
+  <section class="panel-grid">
+
+    <div class="panel">
+      <div class="panel-header">
+        <h2>Inventaire</h2>
+        <span class="panel-tag">stocks</span>
+      </div>
+      <div class="table-wrap">
+        <table id="stockTable">
+          <thead>
+            <tr><th>Depot</th><th>Reference</th><th>Produit</th><th>Categorie</th><th>Qte</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header">
+        <h2>Nouveau transfert</h2>
+        <span class="panel-tag">action</span>
+      </div>
+      <form id="transferForm" class="transfer-form">
+        <label>Produit
+          <select id="produitSelect" required></select>
+        </label>
+        <div class="form-row">
+          <label>Source
+            <select id="sourceSelect" required></select>
+          </label>
+          <label>Destination
+            <select id="destSelect" required></select>
+          </label>
+        </div>
+        <label>Quantite
+          <input type="number" id="qteInput" min="1" required>
+        </label>
+        <button type="submit">Lancer le transfert</button>
+        <p class="form-msg" id="formMsg"></p>
+      </form>
+    </div>
+
+    <div class="panel panel-wide">
+      <div class="panel-header">
+        <h2>Historique</h2>
+        <span class="panel-tag">transferts</span>
+      </div>
+      <div class="table-wrap">
+        <table id="transferTable">
+          <thead>
+            <tr><th>Date</th><th>Produit</th><th>Source</th><th>Destination</th><th>Qte</th><th>Statut</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+  </section>
+
+</main>
+
+<script src="app.js"></script>
+</body>
+</html>

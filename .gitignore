@@ -1,0 +1,23 @@
+# Environment / secrets — never commit real credentials
+.env
+.env.local
+.env.*.local
+
+# Docker
+db_data/
+*.log
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Dependencies (if added later, e.g. composer/npm)
+vendor/
+node_modules/
+
+# Build artifacts
+*.zip
+/dist/
+/build/
