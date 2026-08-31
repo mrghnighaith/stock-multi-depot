@@ -6,7 +6,7 @@ metadata:
   labels:
     app: app
 spec:
-  replicas: 2   # two Pods running the PHP app — Kubernetes load-balances between them automatically
+  replicas: 2   
   selector:
     matchLabels:
       app: app
@@ -17,12 +17,12 @@ spec:
     spec:
       containers:
         - name: app
-          image: node-stock-app:1.0.0   # build locally first: docker build -t node-stock-app:1.0.0 ./app
+          image: node-stock-app:1.0.0   
           ports:
             - containerPort: 9000
           env:
             - name: DB_HOST
-              value: db   # resolved via Kubernetes' internal DNS — same idea as docker-compose service names
+              value: db   
             - name: REDIS_HOST
               value: redis
             - name: REDIS_PORT

@@ -58,10 +58,10 @@ metadata:
   name: nginx
   namespace: stock-multi-depot
 spec:
-  type: NodePort   # exposes the app outside the cluster, on every node's IP
+  type: NodePort   
   selector:
     app: nginx
   ports:
     - port: 80
       targetPort: 80
-      nodePort: 30090   # http://<any-node-ip>:30090 — mirrors your compose port 9090
+      nodePort: 30090   
