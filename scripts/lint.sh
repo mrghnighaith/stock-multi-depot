@@ -3,7 +3,7 @@
 set -e
 
 echo "Linting PHP files..."
-find app/public -name "*.php" -print0 | while IFS= read -r -d '' file; do
+find app/public -name "*.php" | while IFS= read -r file; do
   php -l "$file"
 done
 
