@@ -21,3 +21,8 @@ node_modules/
 *.zip
 /dist/
 /build/
+
+# Large binaries — never commit these
+*.tar.gz
+minikube-linux-amd64
+kubectl
