@@ -1,20 +1,23 @@
 # NODE — Gestion de Stock Multi-Depots
 
-Systeme de gestion de stock reparti sur plusieurs depots (Bizerte, Tunis, Sfax), avec transferts inter-depots et suivi en temps reel. Stack conteneurisee avec Docker Compose.
+Systeme de gestion de stock reparti sur plusieurs depots (Bizerte, Tunis, Sfax), avec transferts inter-depots et suivi en temps reel. Stack conteneurisee avec Docker Compose, avec des manifestes Kubernetes equivalents pour un deploiement en cluster.
 
 ## Stack
 
-- **Frontend**: HTML5 / CSS3 / JS vanilla (design "node map" — pas de framework)
-- **Backend**: PHP 8.2-FPM + PDO (routing module/action dans `api.php`, meme pattern que TraçaLait)
+- **Frontend**: HTML5 / CSS3 / JS vanilla
+- **Backend**: PHP 8.2-FPM + PDO (routing module/action dans `api.php`)
+- **Cache**: Redis 7 (cache la reponse de `stocks/overview` 10s, invalide sur transfert)
 - **Base de donnees**: MySQL 8.0
 - **Reverse proxy**: Nginx
-- **Admin DB**: phpMyAdmin (optionnel)
+- **Admin DB**: phpMyAdmin
 
 ## Structure
 
 ```
 stock-multi-depot/
 ├── docker-compose.yml
+├── Jenkinsfile
+├── .github/workflows/ci-cd.yml
 ├── .env.example
 ├── nginx/
 │   └── default.conf
@@ -25,72 +28,98 @@ stock-multi-depot/
 │       ├── style.css
 │       ├── app.js
 │       └── api.php
-└── db/
-    └── init.sql
+├── db/
+│   └── init.sql
+├── scripts/
+│   └── lint.sh
+└── k8s/
+    ├── 00-namespace.yaml
+    ├── 01-secret.yaml
+    ├── 02-mysql-storage.yaml
+    ├── 03-mysql-deployment.yaml
+    ├── 04-redis-deployment.yaml
+    ├── 05-app-deployment.yaml
+    └── 06-nginx-deployment.yaml
 ```
 
-## Lancement
+## Lancement (Docker Compose)
 
 ```bash
 cp .env.example .env
 docker compose up -d --build
 ```
 
-- App : http://localhost:8080
-- phpMyAdmin : http://localhost:8081 (user: root, pass: voir .env)
-- MySQL expose sur le port 3307 (pour connexion externe, ex. DBeaver)
+- App : http://localhost:9090
+- phpMyAdmin : http://localhost:8081
+- MySQL expose sur le port 3307
 
-## Modules API (`api.php`)
+## Reseau Docker et cache
 
-| Module       | Action  | Methode | Description                          |
-|--------------|---------|---------|---------------------------------------|
-| depots       | list    | GET     | Liste des depots                      |
-| stocks       | overview| GET     | Vue croisee depots x produits x qte  |
-| transferts   | list    | GET     | Historique des transferts            |
-| transferts   | create  | POST    | Cree un transfert (verifie le stock) |
+Tous les services partagent un reseau bridge personnalise (`stocknet`), ce qui leur permet de se joindre par nom de service (`db`, `redis`, etc.) plutot que par IP. Redis met en cache la reponse de `stocks/overview` et bascule silencieusement sur MySQL direct s'il est indisponible.
 
+## CI/CD — deux pipelines
 
-## Workflow Git
+### GitHub Actions (`.github/workflows/ci-cd.yml`)
+- **build-and-test** : lint PHP + build des images Docker, sur chaque push/PR
+- **deploy** : s'execute sur un runner self-hosted installe sur le VM (evite d'exposer le VM publiquement) — `docker compose down && up -d --build`
+
+### Jenkins (`Jenkinsfile`)
+- Meme sequence : Checkout → Lint PHP → Build Images → Deploy
+- Necessite que `jenkins` (utilisateur systeme) soit dans le groupe `docker` :
+  `sudo usermod -aG docker jenkins && sudo systemctl restart jenkins`
+- Le stage Deploy utilise `env.GIT_BRANCH` (pas `when { branch }`, qui necessite un job Multibranch Pipeline)
+
+## Kubernetes (`k8s/`)
+
+Manifestes equivalents au `docker-compose.yml`, pour deployer sur un cluster reel (via `kubeadm`, ou plus simplement `minikube` pour tester en local) :
+
+| Fichier | Objet(s) K8s | Role |
+|---|---|---|
+| `00-namespace.yaml` | Namespace | Isole toutes les ressources du projet |
+| `01-secret.yaml` | Secret | Identifiants DB (equivalent du `.env`) |
+| `02-mysql-storage.yaml` | PersistentVolume + PersistentVolumeClaim | Les donnees MySQL survivent a la suppression du Pod |
+| `03-mysql-deployment.yaml` | Deployment + Service (ClusterIP) | MySQL, accessible uniquement en interne |
+| `04-redis-deployment.yaml` | Deployment + Service (ClusterIP) | Cache Redis |
+| `05-app-deployment.yaml` | Deployment (2 replicas) + Service (ClusterIP) | Backend PHP, 2 copies pour la haute disponibilite — impossible avec docker-compose seul |
+| `06-nginx-deployment.yaml` | ConfigMap + Deployment + Service (NodePort) | Point d'entree externe, port 30090 |
+
+### Deploiement
 
 ```bash
-git init
-git add .
-git commit -m "deployment of full-stack application"
-git branch -M main
-git remote add origin <votre-repo-url>
-git push -u origin main
+cd k8s
+kubectl apply -f 00-namespace.yaml
+kubectl apply -f 01-secret.yaml
+kubectl apply -f 02-mysql-storage.yaml
+kubectl apply -f 03-mysql-deployment.yaml
+kubectl apply -f 04-redis-deployment.yaml
+kubectl apply -f 05-app-deployment.yaml
+kubectl apply -f 06-nginx-deployment.yaml
 ```
 
-- `.gitignore` exclut `.env`, `vendor/`, `node_modules/` et tout fichier contenant des secrets — ne jamais forcer l'ajout d'un `.env` reel.
-- `.dockerignore` (dans `app/`) garde le contexte de build Docker leger et exclut les fichiers sensibles.
-- Travaillez sur des branches de fonctionnalite (`feature/nom-fonction`), fusionnez vers `main` via pull request.
+Ou en une seule commande : `kubectl apply -f k8s/`
 
-## CI/CD (GitHub Actions)
+L'image `node-stock-app:1.0.0` doit etre construite et disponible pour le cluster (soit importee dans un registre comme Docker Hub, soit chargee directement si vous utilisez minikube : `minikube image load node-stock-app:1.0.0`).
 
-Le workflow `.github/workflows/ci-cd.yml` s'execute automatiquement a chaque push :
+### Verifier le deploiement
 
-1. **build-and-test** — verifie la syntaxe PHP (`scripts/lint.sh`) puis build les images Docker.
-2. **deploy** (uniquement sur push vers `main`) — se connecte au serveur via SSH et relance les conteneurs.
+```bash
+kubectl get pods -n stock-multi-depot
+kubectl get svc -n stock-multi-depot
+```
 
-### Secrets GitHub requis
+L'app est accessible sur `http://<IP-du-node>:30090`.
 
-Configurez ces secrets dans **Settings > Secrets and variables > Actions** du repo :
+### Concepts illustres
 
-| Secret            | Description                              |
-|--------------------|-------------------------------------------|
-| `DEPLOY_HOST`      | IP ou domaine du serveur de deploiement   |
-| `DEPLOY_USER`      | Utilisateur SSH sur le serveur            |
-| `DEPLOY_SSH_KEY`   | Cle privee SSH (correspondant a la cle publique autorisee sur le serveur) |
+- **Deployment vs ReplicaSet** : `app` tourne avec `replicas: 2` — si un Pod meurt, Kubernetes en recree un automatiquement pour maintenir ce nombre.
+- **PV/PVC** : resout le probleme souligne en cours (perte de donnees si le conteneur MySQL est supprime) en separant le stockage du cycle de vie du Pod.
+- **Service ClusterIP vs NodePort** : `db` et `redis` restent internes (ClusterIP) ; seul `nginx` est expose a l'exterieur (NodePort, port 30090, dans la plage standard 30000-32767).
+- **ConfigMap** : la configuration Nginx est injectee sans etre codee en dur dans l'image.
 
-Sur le serveur, un fichier `.env.production` (jamais commite) doit exister a la racine du projet clone avec les vraies valeurs de connexion.
+## Points a etendre (pour un PFA)
 
-## Versions des images
-
-| Service     | Image                     |
-|-------------|---------------------------|
-| nginx       | `nginx:1.27-alpine`       |
-| app (PHP)   | `node-stock-app:1.0.0` (build local, base `php:8.2.19-fpm-alpine3.19`) |
-| db          | `mysql:8.0`               |
-| phpmyadmin  | `phpmyadmin:5.2`          |
-
-Incrementez le tag `1.0.0` dans `docker-compose.yml` et le `LABEL version` dans `app/Dockerfile` a chaque changement significatif de l'image applicative.
+- Authentification (session PHP)
+- Alertes automatiques quand `quantite <= seuil_alerte`
+- Historique des annulations de transfert
+- Export CSV/PDF de l'inventaire
+- Ingress Controller pour router plusieurs services via un seul point d'entree HTTP
