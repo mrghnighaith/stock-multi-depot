@@ -1,0 +1,55 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: db
+  namespace: stock-multi-depot
+  labels:
+    app: db
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: db
+  template:
+    metadata:
+      labels:
+        app: db
+    spec:
+      containers:
+        - name: mysql
+          image: mysql:8.0
+          ports:
+            - containerPort: 3306
+          env:
+            - name: MYSQL_DATABASE
+              valueFrom:
+                secretKeyRef: { name: db-credentials, key: DB_NAME }
+            - name: MYSQL_USER
+              valueFrom:
+                secretKeyRef: { name: db-credentials, key: DB_USER }
+            - name: MYSQL_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: db-credentials, key: DB_PASSWORD }
+            - name: MYSQL_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: db-credentials, key: DB_ROOT_PASSWORD }
+          volumeMounts:
+            - name: mysql-storage
+              mountPath: /var/lib/mysql
+      volumes:
+        - name: mysql-storage
+          persistentVolumeClaim:
+            claimName: mysql-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: db
+  namespace: stock-multi-depot
+spec:
+  type: ClusterIP   # internal only — no other service needs to reach MySQL directly from outside the cluster
+  selector:
+    app: db
+  ports:
+    - port: 3306
+      targetPort: 3306

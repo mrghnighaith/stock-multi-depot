@@ -1,0 +1,51 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app
+  namespace: stock-multi-depot
+  labels:
+    app: app
+spec:
+  replicas: 2   # two Pods running the PHP app — Kubernetes load-balances between them automatically
+  selector:
+    matchLabels:
+      app: app
+  template:
+    metadata:
+      labels:
+        app: app
+    spec:
+      containers:
+        - name: app
+          image: node-stock-app:1.0.0   # build locally first: docker build -t node-stock-app:1.0.0 ./app
+          ports:
+            - containerPort: 9000
+          env:
+            - name: DB_HOST
+              value: db   # resolved via Kubernetes' internal DNS — same idea as docker-compose service names
+            - name: REDIS_HOST
+              value: redis
+            - name: REDIS_PORT
+              value: "6379"
+            - name: DB_NAME
+              valueFrom:
+                secretKeyRef: { name: db-credentials, key: DB_NAME }
+            - name: DB_USER
+              valueFrom:
+                secretKeyRef: { name: db-credentials, key: DB_USER }
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: db-credentials, key: DB_PASSWORD }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: app
+  namespace: stock-multi-depot
+spec:
+  type: ClusterIP
+  selector:
+    app: app
+  ports:
+    - port: 9000
+      targetPort: 9000
