@@ -49,9 +49,55 @@ cp .env.example .env
 docker compose up -d --build
 ```
 
-- App : http://localhost:9090
-- phpMyAdmin : http://localhost:8081
-- MySQL expose sur le port 3307
+## Acceder a l'app : VM vs Windows
+
+Le projet tourne dans une VM Ubuntu (VMware). `localhost` designe toujours la machine sur laquelle la commande est executee — ce n'est PAS la meme chose selon que vous etes dans un terminal de la VM ou dans un navigateur Windows.
+
+### Depuis un terminal/navigateur a l'interieur de la VM
+
+http://localhost:9090
+
+Fonctionne directement — Docker Compose tourne sur cette meme machine.
+
+### Depuis le navigateur Windows (l'hote)
+`localhost:9090` sur Windows pointe vers Windows lui-meme, pas vers la VM. Il faut utiliser l'IP reseau de la VM a la place.
+
+**1. Trouver l'IP de la VM** (dans un terminal de la VM) :
+```bash
+ip addr show | grep "inet "
+```
+Chercher la ligne avec l'interface reseau principale (`ens33` typiquement, pas `lo`, `docker0`, ou `br-...`), par exemple :
+
+inet 192.168.211.140/24 ... ens33
+
+
+**2. Utiliser cette IP depuis Windows** :
+
+http://192.168.211.140:9090
+
+
+Cette IP peut changer si la VM redemarre (adressage DHCP par defaut) — la revérifier avec `ip addr show` si l'app devient injoignable apres un redemarrage.
+
+### Depuis le navigateur Windows, pour le cluster Kubernetes (minikube)
+
+Minikube ajoute encore une couche reseau. Toujours executer cette commande **dans la VM** pour obtenir l'URL correcte :
+```bash
+minikube service nginx -n stock-multi-depot --url
+```
+Cela retourne une IP interne a minikube (ex. `http://192.168.49.2:30090`), generalement seulement accessible depuis la VM elle-meme, pas depuis Windows. Pour tester depuis la VM :
+```bash
+curl $(minikube service nginx -n stock-multi-depot --url)
+```
+
+Also find further down:
+
+markdown
+L'app est accessible sur `http://<IP-du-node>:30090`.
+
+and change it to:
+
+markdown
+L'app est accessible sur `http://<IP-du-node>:30090` (voir la section "Acceder a l'app : VM vs Windows" plus haut — depuis la VM, `minikube service nginx -n stock-multi-depot --url` donne l'URL exacte a utiliser).
 
 ## Reseau Docker et cache
 
