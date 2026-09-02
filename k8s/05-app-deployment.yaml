@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
         - name: app
-          image: node-stock-app:1.0.0   
+          image: ghaith5/node-stock-app:1.0.0  
           ports:
             - containerPort: 9000
           env:
