@@ -19,7 +19,33 @@
   <div class="status-pill" id="statusPill">
     <span class="dot"></span> systeme actif
   </div>
+  <div class="auth-widget" id="authWidget">
+    <button id="loginBtn" class="auth-btn">Se connecter</button>
+    <div class="auth-logged-in" id="authLoggedIn" hidden>
+      <span id="authUsername"></span>
+      <button id="logoutBtn" class="auth-btn-ghost">Deconnexion</button>
+    </div>
+  </div>
 </header>
+
+<div class="login-modal" id="loginModal" hidden>
+  <div class="login-box">
+    <h3>Connexion</h3>
+    <form id="loginForm">
+      <label>Utilisateur
+        <input type="text" id="loginUsername" required autocomplete="username">
+      </label>
+      <label>Mot de passe
+        <input type="password" id="loginPassword" required autocomplete="current-password">
+      </label>
+      <div class="login-actions">
+        <button type="button" id="loginCancel" class="auth-btn-ghost">Annuler</button>
+        <button type="submit">Connexion</button>
+      </div>
+      <p class="form-msg" id="loginMsg"></p>
+    </form>
+  </div>
+</div>
 
 <main>
 
@@ -28,7 +54,14 @@
     <p>Visualisez les flux de stock entre Bizerte, Tunis et Sfax en temps reel.</p>
   </section>
 
-  <!-- Signature element: warehouse node map -->
+  <section class="alerts-banner" id="alertsBanner" hidden>
+    <div class="alerts-header">
+      <span class="alerts-icon">⚠</span>
+      <span id="alertsSummary"></span>
+    </div>
+    <ul class="alerts-list" id="alertsList"></ul>
+  </section>
+
   <section class="node-map" aria-label="Recapitulatif des depots">
     <div class="node" data-depot="1">
       <div class="node-label">DEPOT NORD</div>
@@ -52,7 +85,10 @@
     <div class="panel">
       <div class="panel-header">
         <h2>Inventaire</h2>
-        <span class="panel-tag">stocks</span>
+        <div class="panel-header-actions">
+          <a href="api.php?module=export&action=csv" id="exportBtn" class="panel-link">Exporter CSV</a>
+          <span class="panel-tag">stocks</span>
+        </div>
       </div>
       <div class="table-wrap">
         <table id="stockTable">
@@ -69,7 +105,8 @@
         <h2>Nouveau transfert</h2>
         <span class="panel-tag">action</span>
       </div>
-      <form id="transferForm" class="transfer-form">
+      <p class="auth-required-msg" id="authRequiredMsg">Connectez-vous pour effectuer un transfert.</p>
+      <form id="transferForm" class="transfer-form" hidden>
         <label>Produit
           <select id="produitSelect" required></select>
         </label>

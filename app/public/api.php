@@ -1,6 +1,7 @@
 <?php
-header('Content-Type: application/json');
+session_start();
 header('Access-Control-Allow-Origin: *');
+header('Access-Control-Allow-Credentials: true');
 
 function getPDO(): PDO {
     $host = getenv('DB_HOST') ?: 'db';
@@ -14,11 +15,115 @@ function getPDO(): PDO {
     ]);
 }
 
+function getRedis(): ?Redis {
+    try {
+        $redis = new Redis();
+        $redis->connect(getenv('REDIS_HOST') ?: 'redis', (int)(getenv('REDIS_PORT') ?: 6379));
+        return $redis;
+    } catch (Exception $e) {
+        return null;
+    }
+}
+
+function isLoggedIn(): bool {
+    return !empty($_SESSION['user_id']);
+}
+
+function requireAuth(): void {
+    if (!isLoggedIn()) {
+        http_response_code(401);
+        header('Content-Type: application/json');
+        echo json_encode(['error' => 'Authentification requise']);
+        exit;
+    }
+}
+
 $module = $_GET['module'] ?? '';
 $action = $_GET['action'] ?? '';
 
+// CSV export needs different headers than the JSON default — handle it before
+// the generic JSON header is sent, and before entering the try block.
+if ($module === 'export' && $action === 'csv') {
+    requireAuth();
+
+    try {
+        $pdo = getPDO();
+        $sql = "SELECT d.nom AS depot, p.reference, p.nom AS produit, p.categorie,
+                       s.quantite, p.seuil_alerte
+                FROM stocks s
+                JOIN depots d ON d.id = s.depot_id
+                JOIN produits p ON p.id = s.produit_id
+                ORDER BY d.nom, p.nom";
+        $stmt = $pdo->query($sql);
+        $rows = $stmt->fetchAll();
+
+        header('Content-Type: text/csv; charset=utf-8');
+        header('Content-Disposition: attachment; filename="inventaire_' . date('Y-m-d') . '.csv"');
+
+        $out = fopen('php://output', 'w');
+        fputcsv($out, ['Depot', 'Reference', 'Produit', 'Categorie', 'Quantite', 'Seuil alerte', 'Statut']);
+        foreach ($rows as $r) {
+            $statut = $r['quantite'] <= $r['seuil_alerte'] ? 'STOCK BAS' : 'OK';
+            fputcsv($out, [$r['depot'], $r['reference'], $r['produit'], $r['categorie'], $r['quantite'], $r['seuil_alerte'], $statut]);
+        }
+        fclose($out);
+        exit;
+    } catch (Exception $e) {
+        http_response_code(500);
+        header('Content-Type: application/json');
+        echo json_encode(['error' => $e->getMessage()]);
+        exit;
+    }
+}
+
+header('Content-Type: application/json');
+
 try {
     $pdo = getPDO();
+
+    if ($module === 'auth' && $action === 'login' && $_SERVER['REQUEST_METHOD'] === 'POST') {
+        $data = json_decode(file_get_contents('php://input'), true);
+        $username = trim($data['username'] ?? '');
+        $password = $data['password'] ?? '';
+
+        if ($username === '' || $password === '') {
+            http_response_code(400);
+            echo json_encode(['error' => 'Identifiants requis']);
+            exit;
+        }
+
+        $stmt = $pdo->prepare("SELECT id, username, password_hash FROM users WHERE username = ?");
+        $stmt->execute([$username]);
+        $user = $stmt->fetch();
+
+        if (!$user || !password_verify($password, $user['password_hash'])) {
+            http_response_code(401);
+            echo json_encode(['error' => 'Identifiants incorrects']);
+            exit;
+        }
+
+        session_regenerate_id(true);
+        $_SESSION['user_id'] = $user['id'];
+        $_SESSION['username'] = $user['username'];
+
+        echo json_encode(['success' => true, 'username' => $user['username']]);
+        exit;
+    }
+
+    if ($module === 'auth' && $action === 'logout') {
+        $_SESSION = [];
+        session_destroy();
+        echo json_encode(['success' => true]);
+        exit;
+    }
+
+    if ($module === 'auth' && $action === 'check') {
+        echo json_encode([
+            'logged_in' => isLoggedIn(),
+            'username' => $_SESSION['username'] ?? null,
+        ]);
+        exit;
+    }
 
     if ($module === 'depots' && $action === 'list') {
         $stmt = $pdo->query("SELECT * FROM depots ORDER BY nom");
@@ -27,6 +132,17 @@ try {
     }
 
     if ($module === 'stocks' && $action === 'overview') {
+        $redis = getRedis();
+        $cacheKey = 'stocks:overview';
+
+        if ($redis) {
+            $cached = $redis->get($cacheKey);
+            if ($cached !== false) {
+                echo $cached;
+                exit;
+            }
+        }
+
         $sql = "SELECT d.id AS depot_id, d.nom AS depot_nom, d.ville,
                        p.id AS produit_id, p.reference, p.nom AS produit_nom,
                        p.categorie, p.seuil_alerte, s.quantite
@@ -35,11 +151,33 @@ try {
                 JOIN produits p ON p.id = s.produit_id
                 ORDER BY d.nom, p.nom";
         $stmt = $pdo->query($sql);
+        $result = json_encode($stmt->fetchAll());
+
+        if ($redis) {
+            $redis->setex($cacheKey, 10, $result);
+        }
+
+        echo $result;
+        exit;
+    }
+
+    if ($module === 'stocks' && $action === 'alerts') {
+        $sql = "SELECT d.id AS depot_id, d.nom AS depot_nom,
+                       p.id AS produit_id, p.reference, p.nom AS produit_nom,
+                       s.quantite, p.seuil_alerte
+                FROM stocks s
+                JOIN depots d ON d.id = s.depot_id
+                JOIN produits p ON p.id = s.produit_id
+                WHERE s.quantite <= p.seuil_alerte
+                ORDER BY (p.seuil_alerte - s.quantite) DESC";
+        $stmt = $pdo->query($sql);
         echo json_encode($stmt->fetchAll());
         exit;
     }
 
     if ($module === 'transferts' && $action === 'create' && $_SERVER['REQUEST_METHOD'] === 'POST') {
+        requireAuth();
+
         $data = json_decode(file_get_contents('php://input'), true);
         $produit_id = (int)($data['produit_id'] ?? 0);
         $source     = (int)($data['depot_source'] ?? 0);
@@ -76,6 +214,12 @@ try {
             ->execute([$produit_id, $source, $dest, $qte]);
 
         $pdo->commit();
+
+        $redis = getRedis();
+        if ($redis) {
+            $redis->del('stocks:overview');
+        }
+
         echo json_encode(['success' => true]);
         exit;
     }

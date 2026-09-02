@@ -36,7 +36,13 @@ CREATE TABLE IF NOT EXISTS transferts (
     FOREIGN KEY (depot_dest) REFERENCES depots(id)
 );
 
--- Seed data
+CREATE TABLE IF NOT EXISTS users (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    username VARCHAR(50) NOT NULL UNIQUE,
+    password_hash VARCHAR(255) NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
 INSERT INTO depots (nom, ville, capacite) VALUES
 ('Depot Nord', 'Bizerte', 5000),
 ('Depot Centre', 'Tunis', 8000),
@@ -51,3 +57,8 @@ INSERT INTO stocks (depot_id, produit_id, quantite) VALUES
 (1, 1, 120), (1, 2, 45), (1, 3, 200),
 (2, 1, 300), (2, 2, 500), (2, 3, 80),
 (3, 1, 20), (3, 2, 60), (3, 3, 15);
+
+-- Compte admin par defaut — identifiants : admin / admin123
+-- A CHANGER en production (voir README pour la marche a suivre)
+INSERT INTO users (username, password_hash) VALUES
+('admin', '$2b$10$y.x1ZECSPA/qfPhQmcLSyOwBLsMja5BdOof/Vj51kbTUqHq6X1IBS');
