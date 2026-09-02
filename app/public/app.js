@@ -165,9 +165,13 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Erreur de connexion');
 
+    // Apply auth state and hide modal
     applyAuthState(true, data.username);
     document.getElementById('loginModal').hidden = true;
     document.getElementById('loginForm').reset();
+    
+    // Refresh data after login
+    refreshAll();
   } catch (err) {
     msg.textContent = err.message;
     msg.classList.add('error');
