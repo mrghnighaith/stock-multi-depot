@@ -42,7 +42,7 @@ spec:
     spec:
       initContainers:
         - name: copy-static-files
-          image: node-stock-app:1.0.0
+          image: ghaith5/node-stock-app:1.0.0
           command: ["sh", "-c", "cp -r /var/www/html/. /web-root/"]
           volumeMounts:
             - name: web-root
