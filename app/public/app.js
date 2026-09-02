@@ -106,6 +106,7 @@ function applyAuthState(loggedIn, username) {
   const transferForm = document.getElementById('transferForm');
   const authRequiredMsg = document.getElementById('authRequiredMsg');
   const exportBtn = document.getElementById('exportBtn');
+  const alertsBanner = document.getElementById('alertsBanner');
 
   if (loggedIn) {
     loginBtn.hidden = true;
@@ -117,13 +118,16 @@ function applyAuthState(loggedIn, username) {
     exportBtn.style.pointerEvents = 'auto';
     exportBtn.title = '';
   } else {
+    // LOGGED OUT - hide everything
     loginBtn.hidden = false;
     loggedInBox.hidden = true;
+    usernameEl.textContent = '';  // Clear the username
     transferForm.hidden = true;
     authRequiredMsg.hidden = false;
     exportBtn.style.opacity = '0.4';
     exportBtn.style.pointerEvents = 'none';
     exportBtn.title = 'Connectez-vous pour exporter';
+    alertsBanner.hidden = true;
   }
 }
 
@@ -138,17 +142,8 @@ async function refreshAll() {
   populateSelects(depots, stocks);
 }
 
-// --- Auth wiring ---
-document.getElementById('loginBtn').addEventListener('click', () => {
-  document.getElementById('loginModal').hidden = false;
-});
-
-document.getElementById('loginCancel').addEventListener('click', () => {
-  document.getElementById('loginModal').hidden = true;
-});
-
-document.getElementById('loginForm').addEventListener('submit', async (e) => {
-  e.preventDefault();
+// --- LOGIN HANDLER ---
+async function handleLogin() {
   const msg = document.getElementById('loginMsg');
   msg.textContent = '';
   msg.className = 'form-msg';
@@ -165,30 +160,106 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Erreur de connexion');
 
-    // Apply auth state and hide modal
     applyAuthState(true, data.username);
-    document.getElementById('loginModal').hidden = true;
     document.getElementById('loginForm').reset();
     
-    // Refresh data after login
-    refreshAll();
+    const modal = document.getElementById('loginModal');
+    modal.hidden = true;
+    modal.style.display = 'none';
+    
+    await refreshAll();
+    
   } catch (err) {
     msg.textContent = err.message;
     msg.classList.add('error');
   }
+}
+
+// --- AUTH EVENT LISTENERS ---
+document.getElementById('loginBtn').addEventListener('click', function(e) {
+  e.preventDefault();
+  document.getElementById('loginModal').hidden = false;
+  document.getElementById('loginModal').style.display = 'flex';
 });
 
+document.getElementById('loginCancel').addEventListener('click', function(e) {
+  e.preventDefault();
+  const modal = document.getElementById('loginModal');
+  modal.hidden = true;
+  modal.style.display = 'none';
+});
+
+document.getElementById('loginForm').addEventListener('submit', function(e) {
+  e.preventDefault();
+  e.stopPropagation();
+  handleLogin();
+  return false;
+});
+
+document.getElementById('loginSubmitBtn').addEventListener('click', function(e) {
+  e.preventDefault();
+  e.stopPropagation();
+  handleLogin();
+  return false;
+});
+
+// --- LOGOUT HANDLER ---
 document.getElementById('logoutBtn').addEventListener('click', async () => {
-  await fetch(`${API}?module=auth&action=logout`);
-  applyAuthState(false, null);
+  try {
+    await fetch(`${API}?module=auth&action=logout`);
+    
+    // Reset auth state
+    applyAuthState(false, null);
+    
+    // Clear all data displays
+    document.querySelector('#stockTable tbody').innerHTML = '';
+    document.querySelector('#transferTable tbody').innerHTML = '';
+    document.getElementById('alertsBanner').hidden = true;
+    document.getElementById('alertsList').innerHTML = '';
+    document.querySelectorAll('.node-value').forEach(el => {
+      el.textContent = '—';
+    });
+    document.getElementById('transferForm').reset();
+    document.getElementById('loginMsg').textContent = '';
+    
+    // Hide the modal just in case
+    const modal = document.getElementById('loginModal');
+    modal.hidden = true;
+    modal.style.display = 'none';
+    
+    // Force hide the logged-in box
+    document.getElementById('authLoggedIn').hidden = true;
+    document.getElementById('loginBtn').hidden = false;
+    
+    console.log('Logged out successfully');
+    
+  } catch (err) {
+    console.error('Logout error:', err);
+  }
 });
 
-// --- Transfer form ---
+// --- TRANSFER FORM ---
 document.getElementById('transferForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   const msg = document.getElementById('formMsg');
   msg.textContent = '';
   msg.className = 'form-msg';
+
+  try {
+    const authCheck = await fetch(`${API}?module=auth&action=check`);
+    const authData = await authCheck.json();
+    
+    if (!authData.logged_in) {
+      msg.textContent = 'Veuillez vous reconnecter';
+      msg.classList.add('error');
+      document.getElementById('loginModal').hidden = false;
+      return;
+    }
+  } catch (err) {
+    msg.textContent = 'Erreur de verification de session';
+    msg.classList.add('error');
+    return;
+  }
 
   const payload = {
     produit_id: document.getElementById('produitSelect').value,
@@ -209,14 +280,14 @@ document.getElementById('transferForm').addEventListener('submit', async (e) => 
     msg.textContent = 'Transfert effectue avec succes.';
     msg.classList.add('success');
     e.target.reset();
-    refreshAll();
+    await refreshAll();
   } catch (err) {
     msg.textContent = err.message;
     msg.classList.add('error');
   }
 });
 
-// --- Init ---
+// --- INIT ---
 (async () => {
   const auth = await checkAuth();
   applyAuthState(auth.logged_in, auth.username);
