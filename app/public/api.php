@@ -16,13 +16,16 @@ function getPDO(): PDO {
 }
 
 function getRedis(): ?Redis {
-    try {
+    // Redis extension not installed - temporarily disabled
+    return null;
+    
+    /* try {
         $redis = new Redis();
         $redis->connect(getenv('REDIS_HOST') ?: 'redis', (int)(getenv('REDIS_PORT') ?: 6379));
         return $redis;
     } catch (Exception $e) {
         return null;
-    }
+    } */
 }
 
 function isLoggedIn(): bool {
