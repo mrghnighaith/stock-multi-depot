@@ -15,46 +15,66 @@ spec:
       labels:
         app: db
     spec:
+      nodeSelector:
+        tier: database
+      tolerations:
+      - key: "tier"
+        operator: "Equal"
+        value: "database"
+        effect: "NoSchedule"
+      - key: "node-role.kubernetes.io/control-plane"
+        operator: "Exists"
+        effect: "NoSchedule"
       containers:
-        - name: mysql
-          image: mysql:8.0
-          ports:
-            - containerPort: 3306
-          env:
-            - name: MYSQL_DATABASE
-              valueFrom:
-                secretKeyRef: { name: db-credentials, key: DB_NAME }
-            - name: MYSQL_USER
-              valueFrom:
-                secretKeyRef: { name: db-credentials, key: DB_USER }
-            - name: MYSQL_PASSWORD
-              valueFrom:
-                secretKeyRef: { name: db-credentials, key: DB_PASSWORD }
-            - name: MYSQL_ROOT_PASSWORD
-              valueFrom:
-                secretKeyRef: { name: db-credentials, key: DB_ROOT_PASSWORD }
-          volumeMounts:
-            - name: mysql-storage
-              mountPath: /var/lib/mysql
-            - name: mysql-init
-              mountPath: /docker-entrypoint-initdb.d
-      volumes:
+      - name: mysql
+        image: mysql:8.0
+        ports:
+        - containerPort: 3306
+        env:
+        - name: MYSQL_DATABASE
+          valueFrom:
+            secretKeyRef:
+              name: db-credentials
+              key: DB_NAME
+        - name: MYSQL_USER
+          valueFrom:
+            secretKeyRef:
+              name: db-credentials
+              key: DB_USER
+        - name: MYSQL_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: db-credentials
+              key: DB_PASSWORD
+        - name: MYSQL_ROOT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: db-credentials
+              key: DB_ROOT_PASSWORD
+        volumeMounts:
         - name: mysql-storage
-          persistentVolumeClaim:
-            claimName: mysql-pvc
+          mountPath: /var/lib/mysql
         - name: mysql-init
-          configMap:
-            name: mysql-init
+          mountPath: /docker-entrypoint-initdb.d
+      volumes:
+      - name: mysql-storage
+        persistentVolumeClaim:
+          claimName: mysql-pvc
+      - name: mysql-init
+        configMap:
+          name: mysql-init
 ---
 apiVersion: v1
 kind: Service
 metadata:
   name: db
   namespace: stock-multi-depot
+  labels:
+    app: db
 spec:
-  type: ClusterIP   # internal only — no other service needs to reach MySQL directly from outside the cluster
+  ports:
+  - port: 3306
+    targetPort: 3306
   selector:
     app: db
-  ports:
-    - port: 3306
-      targetPort: 3306
+  clusterIP: None
