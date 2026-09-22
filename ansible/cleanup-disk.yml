@@ -1,0 +1,38 @@
+---
+- name: Clean up disk space (Docker, journal logs, apt cache)
+  hosts: k8s_nodes
+  become: true
+
+  tasks:
+    - name: Check disk usage before cleanup
+      command: df -h /
+      register: before
+      changed_when: false
+
+    - name: Show usage before cleanup
+      debug:
+        var: before.stdout_lines
+
+    - name: Prune unused Docker images, containers, and build cache
+      command: docker system prune -a -f
+      register: docker_prune
+      changed_when: "'Total reclaimed space: 0B' not in docker_prune.stdout"
+
+    - name: Vacuum systemd journal logs to 200MB
+      command: journalctl --vacuum-size=200M
+
+    - name: Clean apt package cache
+      command: apt clean
+
+    - name: Remove unused apt dependencies
+      apt:
+        autoremove: true
+
+    - name: Check disk usage after cleanup
+      command: df -h /
+      register: after
+      changed_when: false
+
+    - name: Show usage after cleanup
+      debug:
+        var: after.stdout_lines
