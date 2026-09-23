@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
         - name: app
-          image: ghaith5/stock-backend:1.0.0
+          image: ghaith5/stock-backend:latest
           imagePullPolicy: Always
           ports:
             - containerPort: 80

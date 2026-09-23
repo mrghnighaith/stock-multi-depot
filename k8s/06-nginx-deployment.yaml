@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
         - name: nginx
-          image: ghaith5/stock-nginx:1.0.0
+          image: ghaith5/stock-nginx:latest
           imagePullPolicy: Always
           ports:
             - containerPort: 80
