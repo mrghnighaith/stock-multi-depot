@@ -5,37 +5,54 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_dispatch:  # allows manual "Run workflow" from the GitHub UI
 
 jobs:
 
-  build-and-test:
-    name: Build & Lint
-    runs-on: ubuntu-latest
+  build-and-push:
+    name: Build & Push Images
+    runs-on: self-hosted    # your VM's runner — needs docker + kubectl
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up PHP
-        run: sudo apt-get update && sudo apt-get install -y php-cli
+      - name: Clean up dangling Docker artifacts
+        run: docker system prune -f || true
 
-      - name: Lint PHP files
+      - name: Lint PHP
         run: |
           chmod +x scripts/lint.sh
           ./scripts/lint.sh
 
-      - name: Build Docker images
-        run: docker compose -f docker-compose.yml build
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-  deploy:
-    name: Deploy to server
-    needs: build-and-test
-    runs-on: self-hosted
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - name: Build & push backend
+        uses: docker/build-push-action@v6
+        with:
+          context: ./app
+          push: true
+          tags: |
+            ghaith5/stock-backend:latest
+            ghaith5/stock-backend:${{ github.run_number }}
 
-      - name: Deploy with Docker Compose
+      - name: Build & push frontend
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./nginx/Dockerfile
+          push: true
+          tags: |
+            ghaith5/stock-nginx:latest
+            ghaith5/stock-nginx:${{ github.run_number }}
+
+      - name: Deploy to Kubernetes
         run: |
-          docker compose down
-          docker compose up -d --build
+          kubectl -n stock-multi-depot rollout restart deployment/app
+          kubectl -n stock-multi-depot rollout restart deployment/nginx
+          kubectl -n stock-multi-depot rollout status deployment/app   --timeout=120s
+          kubectl -n stock-multi-depot rollout status deployment/nginx --timeout=120s
