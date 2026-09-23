@@ -6,7 +6,7 @@ metadata:
   labels:
     app: app
 spec:
-  replicas: 2   
+  replicas: 2
   selector:
     matchLabels:
       app: app
@@ -17,12 +17,13 @@ spec:
     spec:
       containers:
         - name: app
-          image: ghaith5/node-stock-app:1.0.1  
+          image: ghaith5/stock-backend:1.0.0
+          imagePullPolicy: Always
           ports:
-            - containerPort: 9000
+            - containerPort: 80
           env:
             - name: DB_HOST
-              value: db   
+              value: db
             - name: REDIS_HOST
               value: redis
             - name: REDIS_PORT
@@ -47,5 +48,5 @@ spec:
   selector:
     app: app
   ports:
-    - port: 9000
-      targetPort: 9000
+    - port: 80
+      targetPort: 80

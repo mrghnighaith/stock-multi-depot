@@ -27,3 +27,4 @@ node_modules/
 minikube-linux-amd64
 kubectl
 stock-app.tar
+*.bak
