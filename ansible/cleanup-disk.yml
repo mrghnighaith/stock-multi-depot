@@ -13,10 +13,14 @@
       debug:
         var: before.stdout_lines
 
+    - name: Check if docker binary exists
+      stat:
+        path: /usr/bin/docker
+      register: docker_bin
+
     - name: Prune unused Docker images, containers, and build cache
-      command: docker system prune -a -f
-      register: docker_prune
-      changed_when: "'Total reclaimed space: 0B' not in docker_prune.stdout"
+      shell: docker system prune -a -f
+      when: docker_bin.stat.exists
 
     - name: Vacuum systemd journal logs to 200MB
       command: journalctl --vacuum-size=200M
