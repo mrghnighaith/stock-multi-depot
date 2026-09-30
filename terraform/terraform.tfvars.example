@@ -1,0 +1,6 @@
+# Copy to terraform.tfvars and adjust — never commit real secrets in tfvars.
+db_name          = "stock_multi_depot"
+db_user          = "stock_user"
+db_password      = "stock_pass"
+db_root_password = "root_pass"
+app_port         = 9091
