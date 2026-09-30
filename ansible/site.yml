@@ -1,0 +1,12 @@
+---
+# Entry point — runs every role against every host in the inventory.
+# Run a single role instead with --tags, e.g.:
+#   ansible-playbook -i inventory.ini site.yml --tags k8s-node-prereqs
+- name: Configure Kubernetes nodes
+  hosts: k8s_nodes
+  become: true
+  roles:
+    - role: k8s-node-prereqs
+      tags: k8s-node-prereqs
+    - role: disk-cleanup
+      tags: disk-cleanup
