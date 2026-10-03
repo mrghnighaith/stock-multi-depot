@@ -28,3 +28,11 @@ minikube-linux-amd64
 kubectl
 stock-app.tar
 *.bak
+
+# Terraform local cache and state files
+.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+*.tfvars
+.terraform.lock.hcl
