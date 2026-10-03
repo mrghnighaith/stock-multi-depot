@@ -19,9 +19,3 @@ variable "db_root_password" {
   default   = "root_pass"
   sensitive = true
 }
-
-variable "app_port" {
-  description = "Host port for the frontend (nginx) container."
-  type        = number
-  default     = 9091 # different from docker-compose's 9090 so both can coexist
-}

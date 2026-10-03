@@ -1,0 +1,76 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": "-- Grafana --",
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": 1,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "collapsed": false,
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "id": 1,
+      "title": "Container Status & Stack Info",
+      "type": "text",
+      "options": {
+        "mode": "markdown",
+        "content": "### 🚀 Stock Multi-Depot Stack\n- **Frontend**: Port 9091\n- **App (PHP)**: Internal (proxied)\n- **Database (MySQL)**: Port 3308\n- **Redis**: Internal\n- **phpMyAdmin**: Port 8083\n- **Prometheus**: Port 9090\n- **Grafana**: Port 3000"
+      }
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "fillOpacity": 10,
+            "lineWidth": 2
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "id": 2,
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom" }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "Prometheus" },
+          "editorMode": "code",
+          "expr": "sum(rate(container_cpu_usage_seconds_total{container_label_com_docker_compose_project=\"\"}[1m])) by (name) * 100",
+          "legendFormat": "{{name}}",
+          "range": true
+        }
+      ],
+      "title": "Container CPU Usage",
+      "type": "timeseries"
+    }
+  ],
+  "refresh": "10s",
+  "schemaVersion": 38,
+  "style": "dark",
+  "tags": ["stock-app"],
+  "time": { "from": "now-1h", "to": "now" },
+  "timepicker": {},
+  "timezone": "",
+  "title": "Stock Multi-Depot Overview",
+  "uid": "stock-overview",
+  "version": 2
+}
