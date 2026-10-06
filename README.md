@@ -1,105 +1,89 @@
-# 🚀 Stock Multi-Depot Infrastructure
+# Stock Multi-Depot Application
 
-A modular, production-grade stock management and deployment architecture built with **Terraform**, **Docker**, **Kubernetes**, and an automated **Prometheus & Grafana** observability stack.
-
----
-
-## 🏗️ Architecture & Tech Stack
-
-* **Infrastructure as Code (IaC):** Modularized **Terraform** managing networks, volumes, image builds, and container lifecycles.
-* **Containerization:** **Docker** for local orchestration and multi-service management.
-* **Orchestration & CI/CD:** **Kubernetes** deployments and automated pipelines via **GitHub Actions** using self-hosted runners.
-* **Application Stack:**
-  * **Frontend Proxy:** Nginx (Port `9091`)
-  * **Backend Application:** PHP / Node.js
-  * **Database:** MySQL 8.0 with automated `init.sql` schema initialization (Port `3308`)
-  * **Caching:** Redis
-  * **Database Manager:** phpMyAdmin (Port `8083`)
-* **Observability & Monitoring:**
-  * **Prometheus:** Metrics collection and scraping (Port `9090`)
-  * **cAdvisor:** Container resource monitoring
-  * **Grafana:** Auto-provisioned dashboards with live CPU/memory telemetry (Port `3000`)
+A containerized, microservices-based stock and inventory management system designed for multi-depot operations, orchestrated via Kubernetes and automated using a GitOps workflow.
 
 ---
 
-## 📂 Project Directory Structure
+## 🏗️ Architecture Overview
+
+The application follows a robust multi-tier architecture deployed inside a Kubernetes cluster:
+
+```
+[ Client / Browser ] 
+       │
+       ▼ (NodePort: 30090)
+[ Nginx Frontend ] ──(Reverse Proxy / proxy_pass)──► [ Apache / PHP Backend ] ──► [ MySQL / Redis ]
+```
+
+*   **Frontend Web Server:** **Nginx** (serving static assets and routing API requests).
+*   **Backend Application Server:** **Apache & PHP 8.2** (handling core business logic, API endpoints, and authentication routes like `api.php`).
+*   **Database & State Management:** **MySQL** (persistent inventory/user data) and **Redis** (caching and sessions).
+
+---
+
+## 🚀 Tech Stack & Tools
+
+*   **Application:** HTML5, CSS3, JavaScript, PHP 8.2, Apache, Nginx.
+*   **Containerization:** Docker, Docker Desktop.
+*   **Orchestration & GitOps:** Kubernetes (`kubectl`), ArgoCD.
+*   **CI/CD Automation:** GitHub Actions with Self-Hosted Windows Runners.
+*   **Environment & Virtualization:** Ubuntu Linux on VMware Workstation Pro / WSL 2.
+*   **Version Control:** Git & GitHub.
+
+---
+
+## 📂 Project Structure
 
 ```text
 stock-multi-depot/
-├── .github/
-│   └── workflows/          # CI/CD deployment pipelines (GitHub Actions)
-├── app/                    # Backend application source code & Dockerfile
-├── db/
-│   └── init.sql            # Automated database schema & initial data loading
-├── grafana/
-│   └── provisioning/       # Auto-provisioned datasources and dashboards
 ├── nginx/
-│   └── default.conf        # Nginx reverse proxy configuration
-├── prometheus/
-│   └── prometheus.yml      # Prometheus scrape targets configuration
-├── terraform/              # Modular Terraform configuration files
-│   ├── providers.tf        # Provider version constraints and setup
-│   ├── variables.tf        # Configurable environment parameters
-│   ├── networks.tf         # Docker network definitions
-│   ├── images.tf           # Remote images and local build configurations
-│   ├── containers.tf       # Service container definitions and volumes
-│   └── outputs.tf          # Deployed endpoints and access URLs
-└── .gitignore              # Ignored files (Terraform state, local caches)
+│   ├── Dockerfile          # Custom Nginx image build file
+│   └── default.conf        # Nginx configuration (routing static & proxying PHP)
+├── app/
+│   └── public/             # Frontend assets (index.html, style.css, app.js)
+├── monitoring/             # Monitoring and observability manifests (Grafana/Prometheus)
+└── README.md
 ```
 
 ---
 
-## 🚦 Getting Started & Local Deployment
+## ⚙️ Configuration & Routing Highlights
 
-### Prerequisites
-* [Docker](https://www.docker.com/) installed and running.
-* [Terraform](https://www.terraform.io/) (v1.0+) installed.
+The Nginx reverse-proxy configuration ensures seamless communication between the frontend client interface and the Apache backend by catching PHP requests and forwarding them correctly:
 
-### 1. Initialize Terraform
-Navigate to the Terraform directory and initialize providers:
-```bash
-cd terraform
-terraform init
-```
+```nginx
+server {
+    listen 80;
+    server_name localhost;
+    root /usr/share/nginx/html;
+    index index.html index.php;
 
-### 2. Provision the Infrastructure
-Review and apply the Terraform configuration:
-```bash
-terraform apply
-```
-*(Type `yes` when prompted).*
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
 
-### 3. Verify Active Endpoints
-You can display all access URLs automatically via Terraform outputs:
-```bash
-terraform output
+    # Proxy PHP requests to the backend Apache/PHP service
+    location ~ \.php$ {
+        proxy_pass http://app;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
 ```
 
 ---
 
-## 🌐 Access Endpoints
+## 🛠️ Deployment & GitOps Workflow
 
-| Service | Local URL / Port | Default Credentials / Info |
-| :--- | :--- | :--- |
-| **Stock Frontend** | `http://localhost:9091` | Application User Login |
-| **Grafana Dashboards** | `http://localhost:3000` | `admin` / `admin` (Auto-provisioned) |
-| **Prometheus UI** | `http://localhost:9090` | Container & system metrics |
-| **phpMyAdmin** | `http://localhost:8083` | `root` / `root_pass` |
-| **MySQL Database** | `localhost:3308` | `stock_user` / `stock_pass` |
+1.  **Source Control:** Code changes and configuration updates (such as Nginx routing adjustments) are committed and pushed to the main repository.
+2.  **GitOps Synchronization:** **ArgoCD** continuously monitors the Git repository and automatically applies synchronization updates to the Kubernetes cluster namespace (`stock-multi-depot`).
+3.  **CI/CD Pipeline:** **GitHub Actions** handles automated build verification and runner execution.
 
 ---
 
-## 📊 Monitoring & Observability
-Prometheus scrapes live container performance metrics using **cAdvisor**. Grafana automatically loads pre-configured dashboards detailing real-time CPU usage, memory consumption, and container status upon startup.
+## 🌐 Accessing the Application
 
----
-
-## 🛠️ Maintenance & Cleanup
-* **Check container status:**
-  ```bash
-  docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
-  ```
-* **Tear down the Terraform stack:**
-  ```bash
-  cd terraform
-  terraform destroy
+Once deployed and running in your Kubernetes cluster, access the application via your configured NodePort service:
