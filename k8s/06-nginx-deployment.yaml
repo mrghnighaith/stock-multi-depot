@@ -21,6 +21,7 @@ spec:
           # build time (see Jenkins "Generation de l'image frontend" stage).
           # No initContainer or ConfigMap needed anymore.
           image: ghaith5/node-stock-frontend:1.0.0
+          imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 80
 ---
