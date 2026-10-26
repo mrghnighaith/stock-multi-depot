@@ -6,3 +6,9 @@ compatibility_date = "2026-10-20"
 directory = "./app/public"          # Change to "./build" if using React/CRA, or "./public" if plain HTML
 workers_dev = true
 preview_urls = true
+# ...
+[observability.logs]
+enabled = true
+invocation_logs = true
+persist = true
+# ...
